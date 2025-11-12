@@ -4,7 +4,7 @@ import numpy as np
 from tensorflow import keras
 
 st.set_page_config(page_title="❤️ Heart Disease Prediction", page_icon="❤️", layout="centered")
-st.title("Heart Disease Prediction using ML & Deep Learning")
+st.title("Heart Disease Prediction")
 
 # Load preprocessing and models
 imp, scaler, num_cols = joblib.load("models/preprocess.joblib")
