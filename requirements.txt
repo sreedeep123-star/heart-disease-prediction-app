@@ -2,6 +2,7 @@ streamlit==1.40.0
 scikit-learn==1.5.2
 tensorflow==2.20.0
 pandas
+tensorflow
 numpy
 google-generativeai
 
