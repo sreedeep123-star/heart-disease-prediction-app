@@ -1,16 +1,20 @@
 import streamlit as st
 import joblib
 import numpy as np
+import tensorflow as tf
 from tensorflow import keras
 import google.generativeai as genai
 import os
 
-# -------------------- SETUP --------------------
+# -------------------- PAGE SETUP --------------------
 st.set_page_config(page_title="❤️ Heart Disease Prediction & Advice", page_icon="❤️", layout="centered")
 st.title("❤️ Heart Disease Prediction & Cure Suggestions")
 
-# Configure Gemini AI (replace with your API key in Streamlit Secrets or env)
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# -------------------- GEMINI API SETUP --------------------
+if not os.getenv("GEMINI_API_KEY"):
+    st.warning("⚠️ GEMINI_API_KEY not found. Please set it in Streamlit Secrets.")
+else:
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # -------------------- LOAD MODELS --------------------
 imp, scaler, num_cols = joblib.load("models/preprocess.joblib")
@@ -28,17 +32,17 @@ age = st.number_input("Age", 20, 100, 50)
 sex = st.selectbox("Sex (1 = Male, 0 = Female)", [1, 0])
 cp = st.selectbox("Chest Pain Type (0-3)", [0, 1, 2, 3])
 trestbps = st.number_input("Resting Blood Pressure", 80, 200, 120)
-chol = st.number_input("Serum Cholestoral (mg/dl)", 100, 600, 200)
+chol = st.number_input("Serum Cholesterol (mg/dl)", 100, 600, 200)
 fbs = st.selectbox("Fasting Blood Sugar > 120 mg/dl (1 = True, 0 = False)", [1, 0])
 restecg = st.selectbox("Resting ECG results (0-2)", [0, 1, 2])
 thalach = st.number_input("Maximum Heart Rate Achieved", 70, 220, 150)
 exang = st.selectbox("Exercise Induced Angina (1 = Yes, 0 = No)", [1, 0])
-oldpeak = st.number_input("ST depression induced by exercise", 0.0, 6.0, 1.0)
-slope = st.selectbox("Slope of the peak exercise ST segment (0-2)", [0, 1, 2])
-ca = st.selectbox("Number of major vessels (0-4)", [0, 1, 2, 3, 4])
-thal = st.selectbox("Thal (0=normal, 1=fixed defect, 2=reversible defect)", [0, 1, 2])
+oldpeak = st.number_input("ST Depression Induced by Exercise", 0.0, 6.0, 1.0)
+slope = st.selectbox("Slope of Peak Exercise ST Segment (0-2)", [0, 1, 2])
+ca = st.selectbox("Number of Major Vessels (0-4)", [0, 1, 2, 3, 4])
+thal = st.selectbox("Thal (0 = Normal, 1 = Fixed Defect, 2 = Reversible Defect)", [0, 1, 2])
 
-# -------------------- DATA PREP --------------------
+# -------------------- DATA PREPARATION --------------------
 X = np.array([[age, sex, cp, trestbps, chol, fbs, restecg,
                thalach, exang, oldpeak, slope, ca, thal]])
 X = imp.transform(X)
@@ -59,11 +63,12 @@ def get_gemini_advice(result_text, features):
         2. Early symptoms to watch for
         3. Lifestyle or diet changes that can help
         4. When to consult a doctor
+
         Keep your explanation friendly, motivating, and easy to understand.
         """
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
-        return response.text
+        return response.text.strip() if response and response.text else "⚠️ No response received from Gemini AI."
     except Exception as e:
         return "⚠️ Unable to fetch advice from Gemini AI. Please check API key."
 
@@ -77,7 +82,24 @@ if st.button("Predict"):
         pred = (nn_model.predict(X) > 0.5).astype("int32")[0][0]
 
     st.subheader("✅ Result:")
-    result_text = "Heart Disease Detected 💔 Causes-  Damage to heart muscle – Lack of oxygen during the attack weakens the heart tissue. Reduced pumping ability – The damaged area makes it harder for the heart to pump blood effectively. Arrhythmias (irregular heartbeat) – Electrical signals in the heart become unstable after muscle injury." if pred == 1 else "No Heart Disease ❤️ Precautions to take - Maintain a healthy weight – Being overweight increases the risk of high blood pressure, cholesterol, and diabetes.Get regular exercise – Engage in at least 30 minutes of physical activity most days to keep your heart strong. Avoid smoking and limit alcohol – Both can damage blood vessels and raise heart attack risk. Manage stress effectively – Practice meditation, yoga, or deep breathing to reduce stress and protect heart health."
+    if pred == 1:
+        result_text = (
+            "Heart Disease Detected 💔\n\n"
+            "Causes:\n"
+            "- Damage to heart muscle due to oxygen shortage during the attack.\n"
+            "- Reduced pumping ability caused by weakened heart tissue.\n"
+            "- Arrhythmias (irregular heartbeat) from unstable electrical signals."
+        )
+    else:
+        result_text = (
+            "No Heart Disease ❤️\n\n"
+            "Precautions:\n"
+            "- Maintain a healthy weight.\n"
+            "- Exercise for at least 30 minutes daily.\n"
+            "- Avoid smoking and limit alcohol.\n"
+            "- Manage stress with meditation or yoga."
+        )
+
     st.write(result_text)
 
     # -------------------- AI ADVICE --------------------
@@ -85,7 +107,9 @@ if st.button("Predict"):
         "Age": age, "Sex": sex, "Cholesterol": chol,
         "Blood Pressure": trestbps, "Heart Rate": thalach
     }
+
     with st.spinner("💬 Consulting Gemini AI for advice..."):
         advice = get_gemini_advice(result_text, features)
+
     st.subheader("🩺 Health Insights & Advice:")
     st.write(advice)
